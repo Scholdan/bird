@@ -37,7 +37,7 @@ CF_KEYWORDS(BGP, LOCAL, NEIGHBOR, AS, HOLD, TIME, CONNECT, RETRY, KEEPALIVE,
 	FIRST, FREE, VALIDATE, BASE, ROLE, ROLES, PEER, PROVIDER, CUSTOMER,
 	RS_SERVER, RS_CLIENT, REQUIRE, BGP_OTC, OTC, GLOBAL, SEND, RECV, MIN, MAX,
 	AUTHENTICATION, NONE, MD5, AO, FORMAT, NATIVE, SINGLE, DOUBLE,
-	BGP_PMSI_TUNNEL)
+	BGP_PMSI_TUNNEL, GSHUT)
 
 CF_KEYWORDS(KEY, KEYS, SECRET, DEPRECATED, PREFERRED, ALGORITHM, CMAC, AES128)
 
@@ -571,6 +571,12 @@ term: ASPA_CHECK_UPSTREAM '(' rtable ')' { $$ =
       $3
   );
 }
+
+CF_CLI_HELP(GSHUT, ..., [[Graceful shutdown of BGP protocols (RFC 8326)]])
+CF_CLI(GSHUT, proto_patt, <protocol> | \"<pattern>\" | all, [[Start graceful shutdown, add GRACEFUL_SHUTDOWN community to exports]])
+{ proto_apply_cmd($2, bgp_cmd_gshut, 1, 1); } ;
+CF_CLI(GSHUT OFF, proto_patt, <protocol> | \"<pattern>\" | all, [[Stop graceful shutdown]])
+{ proto_apply_cmd($3, bgp_cmd_gshut, 1, 0); } ;
 
 CF_CODE
 

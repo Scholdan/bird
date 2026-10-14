@@ -163,6 +163,7 @@ struct bgp_config {
   int require_gr;			/* Require remote support for graceful restart [RFC 4724] */
   int require_llgr;			/* Require remote support for long-lived graceful restart [RFC 9494] */
   struct bfd_options *bfd;		/* Use BFD for liveness detection */
+  u8 gshut;				/* Hack: carries graceful shutdown state over a restart, see bgp_shutdown() */
 };
 
 struct bgp_channel_config {
@@ -397,6 +398,7 @@ struct bgp_proto {
   u8 gr_ready;				/* Neighbor could do graceful restart */
   u8 llgr_ready;			/* Neighbor could do Long-lived GR, implies gr_ready */
   u8 gr_active_num;			/* Neighbor is doing GR, number of active channels */
+  u8 gshut;				/* Graceful shutdown active, exports get GRACEFUL_SHUTDOWN community [RFC 8326] */
   u8 channel_count;			/* Number of active channels */
   u8 summary_add_path_rx;		/* Summary state of ADD_PATH RX w.r.t active channels */
   u32 *afi_map;				/* Map channel index -> AFI */
@@ -622,6 +624,7 @@ void bgp_check_config(struct bgp_config *c);
 void bgp_error(struct bgp_conn *c, unsigned code, unsigned subcode, byte *data, int len);
 void bgp_close_conn(struct bgp_conn *c);
 void bgp_update_startup_delay(struct bgp_proto *p);
+void bgp_cmd_gshut(struct proto *P, uintptr_t arg, int cnt);
 void bgp_add_nbr(struct bgp_proto *pp, const net_addr_nbr *nbr);
 void bgp_remove_nbr(struct bgp_proto *pp, const net_addr_nbr *nbr);
 void bgp_conn_enter_openconfirm_state(struct bgp_conn *conn);
@@ -908,6 +911,7 @@ byte *bgp_create_end_mark_(struct bgp_channel *c, byte *buf);
 #define BGP_COMM_NO_ADVERTISE		0xffffff02	/* Don't export at all */
 #define BGP_COMM_NO_EXPORT_SUBCONFED	0xffffff03	/* NO_EXPORT even in local confederation */
 
+#define BGP_COMM_GRACEFUL_SHUTDOWN	0xffff0000	/* Graceful shutdown [RFC 8326] */
 #define BGP_COMM_LLGR_STALE		0xffff0006	/* Route is stale according to LLGR */
 #define BGP_COMM_NO_LLGR		0xffff0007	/* Do not treat the route according to LLGR */
 

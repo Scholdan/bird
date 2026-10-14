@@ -2090,6 +2090,16 @@ bgp_update_attrs(struct bgp_proto *p, struct bgp_channel *c, rte *e, ea_list *at
       bgp_set_attr_u32(&attrs, pool, BA_ONLY_TO_CUSTOMER, 0, p->public_as);
   }
 
+  /* Graceful shutdown, RFC 8326 - attach GRACEFUL_SHUTDOWN community */
+  if (p->gshut)
+  {
+    a = bgp_find_attr(attrs, BA_COMMUNITY);
+    ad = a ? a->u.ptr : NULL;
+    if (!int_set_contains(ad, BGP_COMM_GRACEFUL_SHUTDOWN))
+      bgp_set_attr_ptr(&attrs, pool, BA_COMMUNITY, a ? a->flags : 0,
+		       int_set_add(pool, ad, BGP_COMM_GRACEFUL_SHUTDOWN));
+  }
+
   /*
    * Presence of mandatory attributes ORIGIN and AS_PATH is ensured by above
    * conditions. Presence and validity of quasi-mandatory NEXT_HOP attribute

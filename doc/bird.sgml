@@ -1544,6 +1544,24 @@ This argument can be omitted if there exists only a single instance.
 	Enable, disable or restart a given protocol instance, instances matching
 	the <cf><m/pattern/</cf> or <cf/all/ instances.
 
+	<tag><label id="cli-gshut">gshut [off] <m/name/|"<m/pattern/"|all</tag>
+	Start (or, with <cf/off/, stop) graceful shutdown (RFC 8326) of a given
+	BGP protocol instance, instances matching the <cf><m/pattern/</cf> or
+	<cf/all/ BGP instances. While active, all routes exported to the neighbor
+	carry the well-known GRACEFUL_SHUTDOWN community (65535, 0), so the
+	neighbor can deprefer them before the session is taken down. The session
+	itself is not affected; use <cf/disable/ once traffic has moved, or
+	<cf/gshut off/ to resume. The command covers the outbound part of the
+	RFC 8326 procedure only; depreferring routes received with this community
+	is a matter of import filters, and shutting the session down is left to
+	the operator. The state is kept across reconfiguration of a running
+	instance, including one that restarts it. It is not kept across a restart
+	of BIRD itself, nor when an instance that is down is replaced by
+	reconfiguration. For dynamic BGP, the state of the listener is
+	inherited by sessions spawned afterwards, while already running sessions
+	are separate instances and have to be selected by name or pattern.
+	Protocols other than BGP are ignored.
+
 	<tag><label id="cli-reload">reload [in|out] <m/name/|"<m/pattern/"|all</tag>
 	Reload a given protocol instance, that means re-import routes from the
 	protocol instance and re-export preferred routes to the instance. If

@@ -1120,7 +1120,12 @@ bgp_spawn(struct bgp_proto *pp, ip_addr remote_ip, ip_addr local_ip, struct ifac
   if (pc)
     rem_node(&pc->n);
 
-  return SKIP_BACK(struct bgp_proto, p, proto_spawn(sym->proto, 0));
+  struct bgp_proto *p = SKIP_BACK(struct bgp_proto, p, proto_spawn(sym->proto, 0));
+
+  /* Dynamic sessions inherit graceful shutdown state from the listener */
+  p->gshut = pp->gshut;
+
+  return p;
 }
 
 static int
@@ -2505,6 +2510,10 @@ bgp_shutdown(struct proto *P)
 
   BGP_TRACE(D_EVENTS, "Shutdown requested");
 
+  /* Hack: pass graceful shutdown state to the new instance through its config */
+  if (P->cf_new && (P->cf_new->protocol == &proto_bgp))
+    ((struct bgp_config *) P->cf_new)->gshut = p->gshut;
+
   switch (P->down_code)
   {
   case PDC_CF_REMOVE:
@@ -2610,6 +2619,10 @@ bgp_init(struct proto_config *CF)
   /* Hack: We use cf->remote_ip just to pass remote_ip from bgp_spawn() */
   if (cf->c.parent)
     cf->remote_ip = IPA_NONE;
+
+  /* Hack: We use cf->gshut just to pass graceful shutdown state from bgp_shutdown() */
+  p->gshut = cf->gshut;
+  cf->gshut = 0;
 
   /* Add all BGP channels */
   struct bgp_channel_config *cc;
@@ -3588,6 +3601,37 @@ bgp_show_capabilities(struct bgp_proto *p UNUSED, struct bgp_caps *caps)
     cli_msg(-1006, "      Role: %s", bgp_format_role_name(caps->role));
 }
 
+/* Toggle graceful shutdown (RFC 8326), see bgp_update_attrs() */
+void
+bgp_cmd_gshut(struct proto *P, uintptr_t arg, int cnt UNUSED)
+{
+  struct bgp_proto *p = (void *) P;
+  int on = !!arg;
+
+  if (P->proto != &proto_bgp)
+  {
+    cli_msg(-8, "%s: not a BGP protocol", P->name);
+    return;
+  }
+
+  if (p->gshut == on)
+  {
+    cli_msg(-8, "%s: graceful shutdown already %s", P->name, on ? "active" : "inactive");
+    return;
+  }
+
+  log(L_INFO "Graceful shutdown of protocol %s %s", P->name, on ? "started" : "stopped");
+  p->gshut = on;
+
+  /* Re-export routes with updated communities */
+  struct channel *c;
+  WALK_LIST(c, P->channels)
+    if (c->channel_state == CS_UP)
+      channel_request_feeding(c);
+
+  cli_msg(-9, "%s: graceful shutdown %s", P->name, on ? "started" : "stopped");
+}
+
 static void
 bgp_show_proto_info(struct proto *P)
 {
@@ -3608,6 +3652,9 @@ bgp_show_proto_info(struct proto *P)
 
   if (p->gr_active_num)
     cli_msg(-1006, "    Neighbor graceful restart active");
+
+  if (p->gshut)
+    cli_msg(-1006, "    Graceful shutdown active");
 
   if (P->proto_state == PS_START)
   {
